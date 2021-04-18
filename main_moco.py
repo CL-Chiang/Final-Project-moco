@@ -24,6 +24,7 @@ import torchvision.models as models
 
 import moco.loader
 import moco.builder
+import moco.base_encoder
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
@@ -114,6 +115,8 @@ def main():
     if args.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
                       'disable data parallelism.')
+
+                      #WANT THIS
 
     if args.dist_url == "env://" and args.world_size == -1:
         args.world_size = int(os.environ["WORLD_SIZE"])

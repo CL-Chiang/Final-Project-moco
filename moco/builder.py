@@ -1,6 +1,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import torch
 import torch.nn as nn
+import math
+
+import base_encoder
 
 
 class MoCo(nn.Module):
@@ -23,8 +26,10 @@ class MoCo(nn.Module):
 
         # create the encoders
         # num_classes is the output fc dimension
-        self.encoder_q = base_encoder(num_classes=dim)
-        self.encoder_k = base_encoder(num_classes=dim)
+        #self.encoder_q = base_encoder(num_classes=dim)
+        #self.encoder_k = base_encoder(num_classes=dim)
+        self.encoder_q = ModelBase(feature_dim=dim, arch=arch, bn_splits=2)
+        self.encoder_k = ModelBase(feature_dim=dim, arch=arch, bn_splits=2)
 
         if mlp:  # hack: brute-force replacement
             dim_mlp = self.encoder_q.fc.weight.shape[1]
@@ -65,6 +70,28 @@ class MoCo(nn.Module):
 
         self.queue_ptr[0] = ptr
 
+    
+    @torch.no_grad()
+    def _batch_shuffle_single_gpu(self, x):
+        """
+        Batch shuffle, for making use of BatchNorm.
+        """
+        # random shuffle index
+        idx_shuffle = torch.randperm(x.shape[0]).cuda()
+
+        # index for restoring
+        idx_unshuffle = torch.argsort(idx_shuffle)
+
+        return x[idx_shuffle], idx_unshuffle
+
+    @torch.no_grad()
+    def _batch_unshuffle_single_gpu(self, x, idx_unshuffle):
+        """
+        Undo batch shuffle.
+        """
+        return x[idx_unshuffle]
+    
+    
     @torch.no_grad()
     def _batch_shuffle_ddp(self, x):
         """
@@ -105,9 +132,11 @@ class MoCo(nn.Module):
         batch_size_all = x_gather.shape[0]
 
         num_gpus = batch_size_all // batch_size_this
+        #num_gpus = 1
 
         # restored index for this gpu
-        gpu_idx = torch.distributed.get_rank()
+        #gpu_idx = torch.distributed.get_rank()
+        gpu_inx = 0
         idx_this = idx_unshuffle.view(num_gpus, -1)[gpu_idx]
 
         return x_gather[idx_this]
@@ -129,14 +158,17 @@ class MoCo(nn.Module):
         with torch.no_grad():  # no gradient to keys
             self._momentum_update_key_encoder()  # update the key encoder
 
-            # shuffle for making use of BN
-            im_k, idx_unshuffle = self._batch_shuffle_ddp(im_k)
+            # # shuffle for making use of BN
+            # im_k, idx_unshuffle = self._batch_shuffle_ddp(im_k)
+            im_k_, idx_unshuffle = self._batch_shuffle_single_gpu(im_k)
 
             k = self.encoder_k(im_k)  # keys: NxC
             k = nn.functional.normalize(k, dim=1)
 
-            # undo shuffle
-            k = self._batch_unshuffle_ddp(k, idx_unshuffle)
+            # # undo shuffle
+            # k = self._batch_unshuffle_ddp(k, idx_unshuffle)
+            k = self._batch_unshuffle_single_gpu(k, idx_unshuffle)
+
 
         # compute logits
         # Einstein sum is more intuitive
@@ -162,14 +194,19 @@ class MoCo(nn.Module):
 
 # utils
 @torch.no_grad()
+#Disabling gradient calculation is useful for inference,
+#  when you are sure that you will not call Tensor.backward(). 
+# It will reduce memory consumption for computations that would otherwise have requires_grad=True
 def concat_all_gather(tensor):
     """
     Performs all_gather operation on the provided tensors.
     *** Warning ***: torch.distributed.all_gather has no gradient.
     """
     tensors_gather = [torch.ones_like(tensor)
+        #Returns a tensor filled with the scalar value 1, with the same size as input
         for _ in range(torch.distributed.get_world_size())]
     torch.distributed.all_gather(tensors_gather, tensor, async_op=False)
+    #communicate with all gpus to gather all the stuffs
 
     output = torch.cat(tensors_gather, dim=0)
     return output
