@@ -25,6 +25,7 @@ import torchvision.models as models
 import moco.loader
 import moco.builder
 import moco.base_encoder
+import pickle
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
@@ -186,7 +187,7 @@ def main_worker(gpu, ngpus_per_node, args):
         torch.cuda.set_device(args.gpu)
         model = model.cuda(args.gpu)
         # comment out the following line for debugging
-        raise NotImplementedError("Only DistributedDataParallel is supported.")
+        #raise NotImplementedError("Only DistributedDataParallel is supported.")
     else:
         # AllGather implementation (batch shuffle, queue update, etc.) in
         # this code only supports DistributedDataParallel.
@@ -400,6 +401,10 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 
+def unpickle(file):
+    with open(file, 'rb') as fo:
+        dictionary = pickle.load(fo)
+    return dictionary
 
 if __name__ == '__main__':
     main()

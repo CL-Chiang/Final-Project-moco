@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import math
 
-import base_encoder
+import moco.base_encoder as be
 
 
 class MoCo(nn.Module):
@@ -28,8 +28,8 @@ class MoCo(nn.Module):
         # num_classes is the output fc dimension
         #self.encoder_q = base_encoder(num_classes=dim)
         #self.encoder_k = base_encoder(num_classes=dim)
-        self.encoder_q = ModelBase(feature_dim=dim, arch=arch, bn_splits=2)
-        self.encoder_k = ModelBase(feature_dim=dim, arch=arch, bn_splits=2)
+        self.encoder_q = be.ModelBase(feature_dim=dim, arch='resnet18', bn_splits=2)
+        self.encoder_k = be.ModelBase(feature_dim=dim, arch='resnet18', bn_splits=2)
 
         if mlp:  # hack: brute-force replacement
             dim_mlp = self.encoder_q.fc.weight.shape[1]
@@ -57,7 +57,9 @@ class MoCo(nn.Module):
     @torch.no_grad()
     def _dequeue_and_enqueue(self, keys):
         # gather keys before updating queue
-        keys = concat_all_gather(keys)
+
+        #### Tyler commented this out to try to eliminate distributed gpu errors
+        #keys = concat_all_gather(keys)
 
         batch_size = keys.shape[0]
 

@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import math
+from functools import partial
+from torchvision.models import resnet
 
 # SplitBatchNorm: simulate multi-gpu behavior of BatchNorm in one gpu by splitting alone the batch dimension
 # implementation adapted from https://github.com/davidcpage/cifar10-fast/blob/master/torch_backend.py
