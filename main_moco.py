@@ -80,6 +80,8 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'N processes per node, which has N GPUs. This is the '
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
+parser.add_argument('--loss_type', default='infoNCE',
+                    help='loss function type to use.')
 
 # moco specific configs:
 parser.add_argument('--moco-dim', default=128, type=int,
@@ -304,7 +306,32 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         # compute output
         output, target = model(im_q=images[0], im_k=images[1])
-        loss = criterion(output, target)
+        if arg.loss_type == 'infoNCE':
+            loss = criterion(output, target)
+        elif arg.loss_type == 'ntXent':
+            output2, target2 = model(im_q=images[1], im_k=images[0])
+            loss = criterion(output, target) + criterion(output2, target2)
+
+        elif arg.loss_type == 'proxy_anchor_loss':
+            mrg = 0.1
+            alpha = 1
+            logits_split = torch.tensor_split(a,(1,a.shape[1]), dim = 1)
+            l_pos = logits_split[0]
+            l_neg = logits_split[1]
+            classes_neg = l_neg.shape[1]
+
+            pos_exp = torch.exp(-alpha * (l_pos - mrg))
+            neg_exp = torch.exp(alpha * (l_neg + mrg))
+
+            P_sim_sum = pos_exp.sum(dim=0)
+            N_sim_sum = neg_exp.sum(dim=0)
+
+            pos_term = torch.log(1 + P_sim_sum).sum() / 1
+            neg_term = torch.log(1 + N_sim_sum).sum() / classes_neg
+            loss = pos_term + neg_term
+        else:
+            loss = criterion(output, target)
+
 
         # acc1/acc5 are (K+1)-way contrast classifier accuracy
         # measure accuracy and record loss
