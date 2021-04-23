@@ -226,6 +226,9 @@ def main_worker(gpu, ngpus_per_node, args):
                                      std=[0.229, 0.224, 0.225])
     if args.aug_plus:
         # MoCo v2's aug: similar to SimCLR https://arxiv.org/abs/2002.05709
+
+        print('using mocov2 augmentations')
+
         augmentation = [
             transforms.RandomResizedCrop(64, scale=(0.2, 1.)),
             transforms.RandomApply([
@@ -241,9 +244,9 @@ def main_worker(gpu, ngpus_per_node, args):
         # MoCo v1's aug: the same as InstDisc https://arxiv.org/abs/1805.01978
         augmentation = [
             transforms.RandomResizedCrop(64, scale=(0.2, 1.)),
-            #transforms.RandomGrayscale(p=0.2),
-            #transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
-            #transforms.RandomHorizontalFlip(),
+            transforms.RandomGrayscale(p=0.2),
+            transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
+            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize
         ]
@@ -269,8 +272,8 @@ def main_worker(gpu, ngpus_per_node, args):
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, args)
 
-        if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                and args.rank % ngpus_per_node == 0):
+        if (not args.multiprocessing_distributed or (args.multiprocessing_distributed
+                and args.rank % ngpus_per_node == 0)) and epoch % 10 == 0:
             save_checkpoint({
                 'epoch': epoch + 1,
                 'arch': args.arch,
@@ -377,6 +380,7 @@ def adjust_learning_rate(optimizer, epoch, args):
     """Decay the learning rate based on schedule"""
     lr = args.lr
     if args.cos:  # cosine lr schedule
+        print('using cosine lr schedule')
         lr *= 0.5 * (1. + math.cos(math.pi * epoch / args.epochs))
     else:  # stepwise lr schedule
         for milestone in args.schedule:

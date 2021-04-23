@@ -3,7 +3,7 @@ import unpickle as up
 from PIL import Image
 
 filename = "/home/tyler/PycharmProjects/val_imagenet_downsampled/val_data"
-dir = "/home/tyler/PycharmProjects/train/"
+dir = "/home/tyler/PycharmProjects/val/val"
 d = up.unpickle(filename)
 data = d['data']
 n = data.shape[0]

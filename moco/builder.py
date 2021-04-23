@@ -28,8 +28,8 @@ class MoCo(nn.Module):
         # num_classes is the output fc dimension
         #self.encoder_q = base_encoder(num_classes=dim)
         #self.encoder_k = base_encoder(num_classes=dim)
-        self.encoder_q = be.ModelBase(feature_dim=dim, arch='resnet18', bn_splits=2)
-        self.encoder_k = be.ModelBase(feature_dim=dim, arch='resnet18', bn_splits=2)
+        self.encoder_q = be.ModelBase(feature_dim=dim, arch='resnet18', bn_splits=8)
+        self.encoder_k = be.ModelBase(feature_dim=dim, arch='resnet18', bn_splits=8)
 
         if mlp:  # hack: brute-force replacement
             dim_mlp = self.encoder_q.fc.weight.shape[1]
