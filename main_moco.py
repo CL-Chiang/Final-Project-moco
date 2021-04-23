@@ -306,13 +306,13 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         # compute output
         output, target = model(im_q=images[0], im_k=images[1])
-        if arg.loss_type == 'infoNCE':
+        if args.loss_type == 'infoNCE':
             loss = criterion(output, target)
-        elif arg.loss_type == 'ntXent':
+        elif args.loss_type == 'ntXent':
             output2, target2 = model(im_q=images[1], im_k=images[0])
             loss = criterion(output, target) + criterion(output2, target2)
 
-        elif arg.loss_type == 'proxy_anchor_loss':
+        elif args.loss_type == 'proxy_anchor_loss':
             mrg = 0.1
             alpha = 1
             logits_split = torch.tensor_split(a,(1,a.shape[1]), dim = 1)
